@@ -62,9 +62,10 @@ button {
   background: none;
   border: 0;
   padding: 0;
-  font-family: "Instrument Serif", Georgia, serif;
-  font-size: 22px;
-  letter-spacing: -0.03em;
+  font-family: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
 }
 
 .nav-meta {
@@ -94,15 +95,15 @@ button {
 
 .headline {
   margin: 0;
-  font-family: "Instrument Serif", Georgia, serif;
-  font-size: clamp(48px, 11vw, 88px);
-  line-height: 0.92;
-  font-weight: 400;
-  letter-spacing: -0.04em;
+  font-family: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  font-size: clamp(44px, 10vw, 80px);
+  line-height: 0.95;
+  font-weight: 800;
+  letter-spacing: -0.05em;
 }
 
 .headline em {
-  font-style: italic;
+  font-style: normal;
   color: var(--accent);
 }
 
@@ -273,7 +274,7 @@ button {
   display: grid;
   place-items: center;
   color: var(--ink);
-  font-family: "Instrument Serif", Georgia, serif;
+  font-family: "Bricolage Grotesque", "Avenir Next", sans-serif;
   font-size: 22px;
   flex-shrink: 0;
 }
@@ -343,7 +344,7 @@ button {
 
 .profile-name {
   margin: 0 0 6px;
-  font-family: "Instrument Serif", Georgia, serif;
+  font-family: "Bricolage Grotesque", "Avenir Next", sans-serif;
   font-size: 36px;
   font-weight: 400;
   letter-spacing: -0.03em;
@@ -448,7 +449,7 @@ button {
   padding: 16px 0;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
-  font-family: "Instrument Serif", Georgia, serif;
+  font-family: "Bricolage Grotesque", "Avenir Next", sans-serif;
   font-size: 24px;
   font-style: italic;
 }

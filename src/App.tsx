@@ -26,8 +26,8 @@ type Receipt = {
   ref: string;
 };
 
-const receiptKey = (ref: string) => `tiktokcash:receipt:${ref}`;
-const receiptIndexKey = "tiktokcash:receipts";
+const receiptKey = (ref: string) => `paymyhandle:receipt:${ref}`;
+const receiptIndexKey = "paymyhandle:receipts";
 
 function loadIndex(): string[] {
   try {
@@ -156,7 +156,7 @@ export default function App() {
     <div className="shell">
       <header className="nav">
         <button className="mark" onClick={reset}>
-          tiktokcash.com
+          paymyhandle.com
         </button>
         <span className="nav-meta">
           {view === "claim" ? "Collect from a DM" : "Pay a TikTok handle"}
@@ -246,9 +246,9 @@ function Home({
       <section className="hero">
         <p className="kicker">For fans, not algorithms</p>
         <h1 className="headline">
-          Pay a TikTok
+          Pay any
           <br />
-          <em>handle.</em>
+          <em>TikTok handle.</em>
         </h1>
         <p className="lede">
           Type an @, pay, then DM them the collect link. They tap it in TikTok
@@ -339,7 +339,7 @@ function Home({
       </section>
 
       <footer className="foot">
-        tiktokcash.com cannot send TikTok DMs for you. You paste the link. Demo
+        paymyhandle.com cannot send TikTok DMs for you. You paste the link. Demo
         checkout — no real charges.
       </footer>
     </main>
@@ -613,7 +613,7 @@ function Claim({
         that handle can collect.
       </p>
       <button className="back" onClick={onHome}>
-        Back to tiktokcash.com
+        Back to paymyhandle.com
       </button>
     </main>
   );

@@ -83,18 +83,22 @@ export function receiptRef(): string {
     .toString(36)
     .toUpperCase()
     .padStart(6, "0");
-  return `TC-${n}`;
+  return `PAY-${n}`;
 }
 
 export function tiktokUrl(handle: string): string {
   return `https://www.tiktok.com/@${handle}`;
 }
 
+export function siteOrigin(): string {
+  const fromEnv = import.meta.env.VITE_SITE_URL;
+  if (fromEnv) return fromEnv.replace(/\/$/, "");
+  if (import.meta.env.PROD) return "https://paymyhandle.com";
+  return window.location.origin;
+}
+
 export function claimUrl(handle: string, ref: string, amount: number): string {
-  const url = new URL(window.location.href);
-  url.search = "";
-  url.hash = `claim/${handle}/${ref}/${Math.round(amount * 100)}`;
-  return url.toString();
+  return `${siteOrigin()}/#claim/${handle}/${ref}/${Math.round(amount * 100)}`;
 }
 
 export function dmMessage(opts: {
@@ -106,7 +110,7 @@ export function dmMessage(opts: {
 }): string {
   const money = formatMoney(opts.amount);
   const note = opts.note ? ` “${opts.note}”` : "";
-  return `${opts.from} sent you ${money} on tiktokcash.com.${note} Collect it here: ${claimUrl(opts.handle, opts.ref, opts.amount)}`;
+  return `${opts.from} sent you ${money} on paymyhandle.com.${note} Collect it here: ${claimUrl(opts.handle, opts.ref, opts.amount)}`;
 }
 
 export type ClaimLink = {
