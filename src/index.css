@@ -8,6 +8,7 @@
   --ink: #0c0c0c;
   --danger: #ff8a7a;
   --focus: #c8f542;
+  --glow: rgb(200 245 66 / 0.12);
   font-family: "Figtree", "Segoe UI", sans-serif;
   color: var(--fg);
   background: var(--bg);
@@ -27,7 +28,11 @@ body,
 }
 
 body {
-  background: var(--bg);
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, var(--glow), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgb(126 224 197 / 0.06), transparent 50%),
+    var(--bg);
+  background-attachment: fixed;
 }
 
 button,
@@ -38,23 +43,45 @@ input {
 
 button {
   cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.15s ease,
+    opacity 0.15s ease;
 }
 
 .shell {
+  position: relative;
   min-height: 100dvh;
-  max-width: 760px;
+  max-width: 720px;
   margin: 0 auto;
-  padding: 0 20px 48px;
+  padding: 0 20px 56px;
+}
+
+.glow {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity: 0.5;
+  z-index: 0;
+}
+
+.nav,
+.view-enter {
+  position: relative;
+  z-index: 1;
 }
 
 .nav {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  padding: 22px 0 10px;
+  padding: 22px 0 12px;
   position: sticky;
   top: 0;
-  background: var(--bg);
+  background: linear-gradient(var(--bg) 70%, transparent);
   z-index: 2;
 }
 
@@ -63,26 +90,70 @@ button {
   border: 0;
   padding: 0;
   font-family: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.04em;
 }
 
+.mark:hover {
+  color: var(--accent);
+}
+
 .nav-meta {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.view-enter {
+  animation: rise-in 0.4s ease both;
+}
+
+.rise {
+  animation: rise-in 0.5s ease both;
+}
+
+.delay-1 {
+  animation-delay: 0.08s;
+}
+
+.delay-2 {
+  animation-delay: 0.16s;
 }
 
 .page {
   display: grid;
-  gap: 36px;
-  padding-top: 28px;
+  gap: 40px;
+  padding-top: 20px;
 }
 
 .hero {
   display: grid;
-  gap: 16px;
-  padding-bottom: 8px;
+  gap: 14px;
+  padding: 8px 0 12px;
+  min-height: min(52vh, 420px);
+  align-content: end;
+}
+
+.brand-hero {
+  margin: 0;
+  font-family: "Bricolage Grotesque", "Avenir Next", sans-serif;
+  font-size: clamp(28px, 7vw, 40px);
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 1;
+  color: var(--fg);
 }
 
 .kicker {
@@ -96,7 +167,7 @@ button {
 .headline {
   margin: 0;
   font-family: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
-  font-size: clamp(44px, 10vw, 80px);
+  font-size: clamp(40px, 9.5vw, 72px);
   line-height: 0.95;
   font-weight: 800;
   letter-spacing: -0.05em;
@@ -109,7 +180,7 @@ button {
 
 .lede {
   margin: 0;
-  max-width: 46ch;
+  max-width: 40ch;
   color: var(--muted);
   font-size: 17px;
   line-height: 1.45;
@@ -123,7 +194,7 @@ button {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .search-field {
@@ -133,12 +204,17 @@ button {
   background: var(--card);
   border: 1px solid var(--line);
   padding: 0 14px;
-  min-height: 52px;
+  min-height: 54px;
+  transition: border-color 0.15s ease;
+}
+
+.search-field:focus-within {
+  border-color: var(--accent);
 }
 
 .at {
   font-family: "IBM Plex Mono", ui-monospace, monospace;
-  color: var(--muted);
+  color: var(--accent);
   font-size: 18px;
 }
 
@@ -159,15 +235,14 @@ button {
 .primary,
 .secondary,
 .chip,
-.creator-card,
-.back {
+.creator-card {
   border: 1px solid var(--line);
 }
 
 .primary,
 .secondary {
   padding: 0 22px;
-  min-height: 52px;
+  min-height: 54px;
   font-weight: 600;
 }
 
@@ -177,14 +252,23 @@ button {
   border-color: var(--accent);
 }
 
+.primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
 .secondary {
   background: transparent;
   color: var(--fg);
 }
 
+.secondary:hover {
+  border-color: var(--muted);
+}
+
 .primary:disabled {
-  opacity: 0.45;
-  cursor: wait;
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .actions {
@@ -212,9 +296,9 @@ button {
 
 .section-label {
   margin: 0 0 12px;
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   color: var(--muted);
   font-weight: 500;
 }
@@ -238,14 +322,22 @@ button {
   padding: 12px 14px;
 }
 
+.creator-card:hover {
+  border-color: rgb(200 245 66 / 0.35);
+  transform: translateY(-1px);
+}
+
 .creator-copy {
   display: grid;
   gap: 2px;
+  min-width: 0;
 }
 
 .creator-copy strong {
   font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sent-card {
@@ -260,7 +352,13 @@ button {
   border: 0;
   color: var(--accent);
   font-size: 13px;
-  padding: 0 6px;
+  font-weight: 600;
+  padding: 8px 6px;
+  white-space: nowrap;
+}
+
+.text-link:hover {
+  text-decoration: underline;
 }
 
 .muted {
@@ -276,6 +374,7 @@ button {
   color: var(--ink);
   font-family: "Bricolage Grotesque", "Avenir Next", sans-serif;
   font-size: 22px;
+  font-weight: 700;
   flex-shrink: 0;
 }
 
@@ -290,10 +389,25 @@ button {
 }
 
 .step-list li {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+
+.step-list li > div {
   display: grid;
   gap: 4px;
-  padding: 16px 0;
-  border-top: 1px solid var(--line);
+}
+
+.step-num {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 13px;
+  color: var(--accent);
+  width: 1.5rem;
+  flex-shrink: 0;
+  padding-top: 2px;
 }
 
 .step-list strong {
@@ -310,10 +424,12 @@ button {
 .fine {
   color: var(--muted);
   font-size: 13px;
+  line-height: 1.45;
 }
 
 .foot {
-  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
 }
 
 .back {
@@ -323,6 +439,10 @@ button {
   padding: 0;
   color: var(--muted);
   font-size: 14px;
+}
+
+.back:hover {
+  color: var(--fg);
 }
 
 .profile {
@@ -345,8 +465,8 @@ button {
 .profile-name {
   margin: 0 0 6px;
   font-family: "Bricolage Grotesque", "Avenir Next", sans-serif;
-  font-size: 36px;
-  font-weight: 400;
+  font-size: 34px;
+  font-weight: 700;
   letter-spacing: -0.03em;
 }
 
@@ -367,7 +487,7 @@ button {
 
 .pay-card {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   background: var(--card);
   border: 1px solid var(--line);
   padding: 20px;
@@ -382,6 +502,10 @@ button {
 .chip {
   background: transparent;
   padding: 10px 14px;
+}
+
+.chip:hover {
+  border-color: var(--muted);
 }
 
 .chip.is-on {
@@ -406,17 +530,21 @@ button {
   border-bottom: 1px solid var(--line);
   border-radius: 0;
   padding: 0;
+  transition: border-color 0.15s ease;
+}
+
+.field input:focus {
+  border-bottom-color: var(--accent);
 }
 
 .totals {
   display: grid;
   gap: 8px;
-  padding: 8px 0 4px;
+  padding: 10px 0 4px;
   border-top: 1px solid var(--line);
 }
 
-.totals p,
-.facts div {
+.totals p {
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -432,6 +560,7 @@ button {
 
 .due strong {
   font-size: 18px;
+  font-variant-numeric: tabular-nums;
 }
 
 .error {
@@ -440,8 +569,20 @@ button {
   font-size: 14px;
 }
 
+.ok-line {
+  margin: 0;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 15px;
+}
+
 .done-page .headline {
-  font-size: clamp(40px, 9vw, 72px);
+  font-size: clamp(36px, 8.5vw, 64px);
+}
+
+.done-links {
+  display: grid;
+  gap: 12px;
 }
 
 .note {
@@ -450,26 +591,13 @@ button {
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   font-family: "Bricolage Grotesque", "Avenir Next", sans-serif;
-  font-size: 24px;
+  font-size: 22px;
   font-style: italic;
+  font-weight: 500;
 }
 
-.facts {
-  margin: 0;
-  display: grid;
-  gap: 12px;
-}
-
-.facts dt {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 11px;
-}
-
-.facts dd {
-  margin: 0;
-  color: var(--fg);
-  font-size: 16px;
+.claim-page .primary {
+  width: 100%;
 }
 
 button:focus-visible,
@@ -480,21 +608,60 @@ input:focus-visible {
 
 @media (min-width: 640px) {
   .search {
-    grid-template-columns: 1fr 160px;
+    grid-template-columns: 1fr 150px;
   }
 
   .actions {
+    grid-template-columns: 1.2fr 1fr;
+  }
+
+  .creator-grid {
     grid-template-columns: 1fr 1fr;
   }
 
-  .creator-grid,
   .step-list {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0;
   }
 
   .step-list li {
-    padding: 16px 16px 16px 0;
+    padding: 0 16px 0 0;
     border-top: 0;
-    border-bottom: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .step-list li:last-child {
+    border-right: 0;
+    padding-right: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .search {
+    grid-template-columns: 1fr;
+  }
+
+  .search .primary {
+    width: 100%;
+  }
+
+  .hero {
+    min-height: auto;
+    padding-top: 24px;
+  }
+
+  .nav-meta {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view-enter,
+  .rise,
+  button {
+    animation: none;
+    transition: none;
   }
 }

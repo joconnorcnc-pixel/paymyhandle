@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   amounts,
-  claimUrl,
   creatorFor,
   creators,
   dmMessage,
@@ -24,6 +23,7 @@ type Receipt = {
   note: string;
   from: string;
   ref: string;
+  collected?: boolean;
 };
 
 const receiptKey = (ref: string) => `paymyhandle:receipt:${ref}`;
@@ -61,6 +61,12 @@ function loadReceipts(): Receipt[] {
     .filter((item): item is Receipt => item !== null);
 }
 
+function markCollected(ref: string) {
+  const receipt = loadReceipt(ref);
+  if (!receipt) return;
+  saveReceipt({ ...receipt, collected: true });
+}
+
 export default function App() {
   const [view, setView] = useState<View>("home");
   const [draft, setDraft] = useState("");
@@ -94,6 +100,10 @@ export default function App() {
     window.addEventListener("hashchange", syncHash);
     return () => window.removeEventListener("hashchange", syncHash);
   }, []);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [view]);
 
   function goPay(raw: string) {
     const next = normalizeHandle(raw);
@@ -133,7 +143,7 @@ export default function App() {
       setSent(loadReceipts());
       setPaying(false);
       setView("done");
-    }, 1100);
+    }, 900);
   }
 
   function reset() {
@@ -152,72 +162,81 @@ export default function App() {
     window.location.hash = `claim/${next.creator.handle}/${next.ref}/${Math.round(next.amount * 100)}`;
   }
 
+  function onCollected(ref: string) {
+    markCollected(ref);
+    setSent(loadReceipts());
+  }
+
   return (
     <div className="shell">
+      <div className="glow" aria-hidden />
       <header className="nav">
-        <button className="mark" onClick={reset}>
-          paymyhandle.com
+        <button className="mark" onClick={reset} type="button">
+          paymyhandle
         </button>
         <span className="nav-meta">
-          {view === "claim" ? "Collect from a DM" : "Pay a TikTok handle"}
+          {view === "claim" ? "Collect" : "Pay a TikTok @"}
         </span>
       </header>
 
-      {view === "home" && (
-        <Home
-          draft={draft}
-          error={error}
-          sent={sent}
-          onDraft={setDraft}
-          onSearch={onSearch}
-          onPick={goPay}
-          onOpenDm={(item) => {
-            setReceipt(item);
-            setView("done");
-          }}
-          onOpenClaim={openClaim}
-        />
-      )}
+      <div key={view} className="view-enter">
+        {view === "home" && (
+          <Home
+            draft={draft}
+            error={error}
+            sent={sent.filter((item) => !item.collected)}
+            onDraft={setDraft}
+            onSearch={onSearch}
+            onPick={goPay}
+            onOpenDm={(item) => {
+              setReceipt(item);
+              setView("done");
+            }}
+            onOpenClaim={openClaim}
+          />
+        )}
 
-      {view === "pay" && creator && (
-        <Pay
-          creator={creator}
-          known={known}
-          amount={amount}
-          custom={custom}
-          note={note}
-          from={from}
-          payAmount={payAmount}
-          validAmount={validAmount}
-          fee={fee}
-          paying={paying}
-          onBack={() => setView("home")}
-          onAmount={(value) => {
-            setAmount(value);
-            setCustom("");
-          }}
-          onCustom={setCustom}
-          onNote={setNote}
-          onFrom={setFrom}
-          onPay={onPay}
-        />
-      )}
+        {view === "pay" && creator && (
+          <Pay
+            creator={creator}
+            known={known}
+            amount={amount}
+            custom={custom}
+            note={note}
+            from={from}
+            payAmount={payAmount}
+            validAmount={validAmount}
+            fee={fee}
+            paying={paying}
+            onBack={() => setView("home")}
+            onAmount={(value) => {
+              setAmount(value);
+              setCustom("");
+            }}
+            onCustom={setCustom}
+            onNote={setNote}
+            onFrom={setFrom}
+            onPay={onPay}
+          />
+        )}
 
-      {view === "done" && receipt && (
-        <Done
-          receipt={receipt}
-          onAgain={reset}
-          onPreview={() => openClaim(receipt)}
-        />
-      )}
+        {view === "done" && receipt && (
+          <Done
+            receipt={receipt}
+            onAgain={reset}
+            onPreview={() => openClaim(receipt)}
+          />
+        )}
 
-      {view === "claim" && claim && (
-        <Claim
-          link={claim}
-          stored={loadReceipt(claim.ref)}
-          onHome={reset}
-        />
-      )}
+        {view === "claim" && claim && (
+          <Claim
+            link={claim}
+            stored={loadReceipt(claim.ref)}
+            onHome={reset}
+            onCollected={onCollected}
+          />
+        )}
+      </div>
     </div>
   );
 }
@@ -241,24 +260,31 @@ function Home({
   onOpenDm: (receipt: Receipt) => void;
   onOpenClaim: (receipt: Receipt) => void;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
   return (
     <main className="page">
       <section className="hero">
-        <p className="kicker">For fans, not algorithms</p>
+        <p className="brand-hero">paymyhandle.com</p>
         <h1 className="headline">
           Pay any
           <br />
           <em>TikTok handle.</em>
         </h1>
         <p className="lede">
-          Type an @, pay, then DM them the collect link. They tap it in TikTok
-          and the money is theirs.
+          Type an @, pay, then DM them the collect link. They tap it — money’s
+          theirs.
         </p>
 
         <form className="search" onSubmit={onSearch}>
           <label className="search-field">
             <span className="at">@</span>
             <input
+              ref={inputRef}
               value={draft}
               onChange={(event) => onDraft(event.target.value)}
               placeholder="their.tiktok"
@@ -268,7 +294,7 @@ function Home({
               aria-label="TikTok handle"
             />
           </label>
-          <button className="primary" type="submit">
+          <button className="primary" type="submit" disabled={!draft.trim()}>
             Continue
           </button>
         </form>
@@ -276,13 +302,17 @@ function Home({
       </section>
 
       {sent.length > 0 && (
-        <section>
+        <section className="rise">
           <h2 className="section-label">Waiting on a DM</h2>
           <ul className="creator-grid">
             {sent.map((item) => (
               <li key={item.ref}>
                 <div className="sent-card">
-                  <button className="creator-card" onClick={() => onOpenDm(item)}>
+                  <button
+                    className="creator-card"
+                    onClick={() => onOpenDm(item)}
+                    type="button"
+                  >
                     <Avatar creator={item.creator} />
                     <span className="creator-copy">
                       <strong>
@@ -291,7 +321,11 @@ function Home({
                       <span className="muted">{item.ref} · copy again</span>
                     </span>
                   </button>
-                  <button className="text-link" onClick={() => onOpenClaim(item)}>
+                  <button
+                    className="text-link"
+                    onClick={() => onOpenClaim(item)}
+                    type="button"
+                  >
                     Collect
                   </button>
                 </div>
@@ -301,12 +335,16 @@ function Home({
         </section>
       )}
 
-      <section>
-        <h2 className="section-label">Open handles</h2>
+      <section className="rise delay-1">
+        <h2 className="section-label">Try a handle</h2>
         <ul className="creator-grid">
           {creators.map((item) => (
             <li key={item.handle}>
-              <button className="creator-card" onClick={() => onPick(item.handle)}>
+              <button
+                className="creator-card"
+                onClick={() => onPick(item.handle)}
+                type="button"
+              >
                 <Avatar creator={item} />
                 <span className="creator-copy">
                   <strong>@{item.handle}</strong>
@@ -320,27 +358,36 @@ function Home({
         </ul>
       </section>
 
-      <section className="steps">
+      <section className="steps rise delay-2">
         <h2 className="section-label">How it works</h2>
         <ol className="step-list">
           <li>
-            <strong>Find them</strong>
-            <span>Use the same handle they use on TikTok.</span>
+            <span className="step-num">1</span>
+            <div>
+              <strong>Find them</strong>
+              <span>Same @ they use on TikTok.</span>
+            </div>
           </li>
           <li>
-            <strong>Pay</strong>
-            <span>Card payment, €1–€500. A short note is optional.</span>
+            <span className="step-num">2</span>
+            <div>
+              <strong>Pay</strong>
+              <span>€1–€500. Note optional.</span>
+            </div>
           </li>
           <li>
-            <strong>DM the link</strong>
-            <span>Paste the collect message in their TikTok DMs. They tap it to get paid.</span>
+            <span className="step-num">3</span>
+            <div>
+              <strong>DM the link</strong>
+              <span>They tap it to collect.</span>
+            </div>
           </li>
         </ol>
       </section>
 
       <footer className="foot">
-        paymyhandle.com cannot send TikTok DMs for you. You paste the link. Demo
-        checkout — no real charges.
+        Demo checkout — no real charges. You paste the DM; TikTok won’t let us
+        send it.
       </footer>
     </main>
   );
@@ -383,8 +430,8 @@ function Pay({
 }) {
   return (
     <main className="page pay-page">
-      <button className="back" onClick={onBack}>
-        All handles
+      <button className="back" onClick={onBack} type="button">
+        ← All handles
       </button>
 
       <section className="profile">
@@ -392,8 +439,8 @@ function Pay({
         <div>
           <p className="handle-line">
             @{creator.handle}
-            {creator.verified && <span className="badge">Verified</span>}
-            {!known && <span className="badge dim">New handle</span>}
+            {creator.verified && <span className="badge">On TikTok</span>}
+            {!known && <span className="badge dim">New</span>}
           </p>
           <h1 className="profile-name">{creator.name}</h1>
           <p className="lede tight">{creator.bio}</p>
@@ -415,12 +462,12 @@ function Pay({
           ))}
         </div>
         <label className="field">
-          <span>Or custom</span>
+          <span>Custom €</span>
           <input
             inputMode="decimal"
             placeholder="25"
             value={custom}
-            onChange={(event) => onCustom(event.target.value)}
+            onChange={(event) => onCustom(event.target.value.replace(/[^\d.]/g, ""))}
           />
         </label>
         <label className="field">
@@ -436,7 +483,7 @@ function Pay({
           <span>From</span>
           <input
             maxLength={32}
-            placeholder="Your name, or leave blank"
+            placeholder="Your name"
             value={from}
             onChange={(event) => onFrom(event.target.value)}
           />
@@ -448,7 +495,7 @@ function Pay({
             <strong>{validAmount ? formatMoney(payAmount) : "—"}</strong>
           </p>
           <p>
-            <span>Card fee</span>
+            <span>Fee</span>
             <span>{validAmount ? formatMoney(fee) : "—"}</span>
           </p>
           <p className="due">
@@ -457,16 +504,20 @@ function Pay({
           </p>
         </div>
 
-        {!validAmount && (
+        {custom.trim() !== "" && !validAmount && (
           <p className="error">Enter an amount between €1 and €500.</p>
         )}
 
-        <button className="primary" disabled={!validAmount || paying} onClick={onPay}>
-          {paying ? "Sending…" : `Pay @${creator.handle}`}
+        <button
+          className="primary"
+          disabled={!validAmount || paying}
+          onClick={onPay}
+          type="button"
+        >
+          {paying ? "Holding…" : `Pay @${creator.handle}`}
         </button>
         <p className="fine">
-          Next step: copy the collect message into their TikTok DMs. TikTok
-          does not let this site message them for you.
+          After this you’ll copy a message into their TikTok DMs.
         </p>
       </section>
     </main>
@@ -490,13 +541,12 @@ function Done({
     handle: receipt.creator.handle,
     ref: receipt.ref,
   });
-  const link = claimUrl(receipt.creator.handle, receipt.ref, receipt.amount);
 
   async function copyMessage() {
     try {
       await navigator.clipboard.writeText(message);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
+      window.setTimeout(() => setCopied(false), 1800);
     } catch {
       setCopied(false);
     }
@@ -509,39 +559,40 @@ function Done({
 
   return (
     <main className="page done-page">
-      <p className="kicker">Paid · now DM them</p>
+      <p className="kicker">Held · next: DM</p>
       <h1 className="headline">
         Send this in
         <br />
         <em>@{receipt.creator.handle}’s DMs</em>
       </h1>
       <p className="lede">
-        {formatMoney(receipt.amount)} is held as {receipt.ref}. They collect
-        when they tap the link you paste in TikTok.
+        {formatMoney(receipt.amount)} ready as {receipt.ref}. They collect when
+        they tap your link.
       </p>
 
       <section className="dm-card">
         <p className="section-label">Message to paste</p>
         <p className="dm-bubble">{message}</p>
-        <p className="fine">Link: {link}</p>
         <div className="actions">
-          <button className="primary" onClick={sendInTikTok}>
+          <button className="primary" onClick={sendInTikTok} type="button">
             Copy & open TikTok
           </button>
-          <button className="secondary" onClick={copyMessage}>
-            {copied ? "Copied" : "Copy message"}
+          <button className="secondary" onClick={copyMessage} type="button">
+            {copied ? "Copied ✓" : "Copy message"}
           </button>
         </div>
       </section>
 
       {receipt.note && <blockquote className="note">“{receipt.note}”</blockquote>}
 
-      <button className="back" onClick={onPreview}>
-        Preview what they see when they tap the link
-      </button>
-      <button className="secondary" onClick={onAgain}>
-        Pay another handle
-      </button>
+      <div className="done-links">
+        <button className="back" onClick={onPreview} type="button">
+          Preview their collect page →
+        </button>
+        <button className="secondary" onClick={onAgain} type="button">
+          Pay another handle
+        </button>
+      </div>
     </main>
   );
 }
@@ -550,20 +601,27 @@ function Claim({
   link,
   stored,
   onHome,
+  onCollected,
 }: {
   link: ClaimLink;
   stored: Receipt | null;
   onHome: () => void;
+  onCollected: (ref: string) => void;
 }) {
   const creator = creatorFor(link.handle);
   const amount = stored?.amount ?? link.amount;
   const from = stored?.from ?? "A fan";
   const note = stored?.note ?? "";
-  const [status, setStatus] = useState<"ready" | "paying" | "paid">("ready");
+  const [status, setStatus] = useState<"ready" | "paying" | "paid">(
+    stored?.collected ? "paid" : "ready",
+  );
 
   function collect() {
     setStatus("paying");
-    window.setTimeout(() => setStatus("paid"), 900);
+    window.setTimeout(() => {
+      onCollected(link.ref);
+      setStatus("paid");
+    }, 800);
   }
 
   return (
@@ -577,8 +635,8 @@ function Claim({
             <em>is yours.</em>
           </h1>
           <p className="lede">
-            Demo payout for {link.ref}. In production this would send to the
-            bank account tied to @{link.handle}.
+            Demo payout for {link.ref}. Live, this hits the bank tied to @
+            {link.handle}.
           </p>
         </>
       ) : (
@@ -604,16 +662,24 @@ function Claim({
       </section>
 
       {status !== "paid" && (
-        <button className="primary" disabled={status === "paying"} onClick={collect}>
+        <button
+          className="primary"
+          disabled={status === "paying"}
+          onClick={collect}
+          type="button"
+        >
           {status === "paying" ? "Paying out…" : "Collect to bank"}
         </button>
       )}
+      {status === "paid" && (
+        <p className="ok-line">Collected · demo only</p>
+      )}
       <p className="fine">
-        Live version would ask you to post a code on TikTok or log in, so only
-        that handle can collect.
+        Live version verifies the TikTok first — a bio code or login — so only
+        that @ can collect.
       </p>
-      <button className="back" onClick={onHome}>
-        Back to paymyhandle.com
+      <button className="back" onClick={onHome} type="button">
+        ← paymyhandle.com
       </button>
     </main>
   );
