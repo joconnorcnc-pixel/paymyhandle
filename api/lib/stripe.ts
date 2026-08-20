@@ -64,7 +64,7 @@ export async function findConnectAccount(
   handle: string,
 ): Promise<ConnectAccount | null> {
   const list = stripe.v2.core.accounts.list({
-    limit: 100,
+    limit: 20,
     applied_configurations: ["recipient"],
   });
 
