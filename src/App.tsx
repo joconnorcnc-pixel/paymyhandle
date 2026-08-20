@@ -9,7 +9,6 @@ import {
   isValidHandle,
   normalizeHandle,
   parseClaimHash,
-  receiptRef,
   tiktokUrl,
   type ClaimLink,
   type Creator,
@@ -76,10 +75,13 @@ export default function App() {
   const [note, setNote] = useState("");
   const [from, setFrom] = useState("");
   const [error, setError] = useState("");
+  const [payError, setPayError] = useState("");
   const [paying, setPaying] = useState(false);
+  const [recovering, setRecovering] = useState(false);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [claim, setClaim] = useState<ClaimLink | null>(null);
   const [sent, setSent] = useState<Receipt[]>(() => loadReceipts());
+  const [livemode, setLivemode] = useState(false);
 
   const creator = useMemo(() => (handle ? creatorFor(handle) : null), [handle]);
   const known = creators.some((item) => item.handle === handle);
@@ -102,6 +104,71 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get("session_id");
+    const cancel = params.get("cancel");
+    const cancelHandle = params.get("handle");
+
+    if (cancel === "1") {
+      history.replaceState(null, "", window.location.pathname);
+      if (cancelHandle) {
+        goPay(cancelHandle);
+        setPayError("Checkout cancelled. Try again when ready.");
+      }
+      return;
+    }
+
+    if (!sessionId) return;
+
+    let cancelled = false;
+    setRecovering(true);
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/session?session_id=${encodeURIComponent(sessionId)}`);
+        const data = (await res.json()) as {
+          error?: string;
+          handle?: string;
+          amount?: number;
+          note?: string;
+          from?: string;
+          ref?: string;
+          livemode?: boolean;
+        };
+        if (!res.ok) throw new Error(data.error || "Could not verify payment.");
+        if (cancelled) return;
+
+        const next: Receipt = {
+          creator: creatorFor(data.handle!),
+          amount: data.amount!,
+          note: data.note ?? "",
+          from: data.from || "Someone",
+          ref: data.ref!,
+        };
+        saveReceipt(next);
+        setReceipt(next);
+        setSent(loadReceipts());
+        setLivemode(Boolean(data.livemode));
+        setView("done");
+        history.replaceState(null, "", window.location.pathname);
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Payment verification failed.");
+        setView("home");
+        history.replaceState(null, "", window.location.pathname);
+      } finally {
+        if (!cancelled) setRecovering(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // goPay is stable enough for cancel return; intentional mount-only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     window.scrollTo(0, 0);
   }, [view]);
 
@@ -112,6 +179,7 @@ export default function App() {
       return;
     }
     setError("");
+    setPayError("");
     setHandle(next);
     setDraft(next);
     setAmount(10);
@@ -127,23 +195,30 @@ export default function App() {
     goPay(draft);
   }
 
-  function onPay() {
+  async function onPay() {
     if (!creator || !validAmount || paying) return;
     setPaying(true);
-    window.setTimeout(() => {
-      const next: Receipt = {
-        creator,
-        amount: payAmount,
-        note: note.trim(),
-        from: from.trim() || "Someone",
-        ref: receiptRef(),
-      };
-      saveReceipt(next);
-      setReceipt(next);
-      setSent(loadReceipts());
+    setPayError("");
+    try {
+      const res = await fetch("/api/create-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          handle: creator.handle,
+          amount: payAmount,
+          note: note.trim(),
+          from: from.trim() || "Someone",
+        }),
+      });
+      const data = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok || !data.url) {
+        throw new Error(data.error || "Could not start Stripe Checkout.");
+      }
+      window.location.href = data.url;
+    } catch (err) {
+      setPayError(err instanceof Error ? err.message : "Checkout failed.");
       setPaying(false);
-      setView("done");
-    }, 900);
+    }
   }
 
   function reset() {
@@ -179,6 +254,17 @@ export default function App() {
         </span>
       </header>
 
+      {recovering ? (
+        <main className="page">
+          <p className="kicker">Stripe</p>
+          <h1 className="headline">
+            Confirming
+            <br />
+            <em>payment…</em>
+          </h1>
+          <p className="lede">Checking your card payment with Stripe.</p>
+        </main>
+      ) : (
       <div key={view} className="view-enter">
         {view === "home" && (
           <Home
@@ -190,6 +276,7 @@ export default function App() {
             onPick={goPay}
             onOpenDm={(item) => {
               setReceipt(item);
+              setLivemode(false);
               setView("done");
             }}
             onOpenClaim={openClaim}
@@ -208,6 +295,7 @@ export default function App() {
             validAmount={validAmount}
             fee={fee}
             paying={paying}
+            payError={payError}
             onBack={() => setView("home")}
             onAmount={(value) => {
               setAmount(value);
@@ -223,6 +311,7 @@ export default function App() {
         {view === "done" && receipt && (
           <Done
             receipt={receipt}
+            livemode={livemode}
             onAgain={reset}
             onPreview={() => openClaim(receipt)}
           />
@@ -237,6 +326,7 @@ export default function App() {
           />
         )}
       </div>
+      )}
     </div>
   );
 }
@@ -386,8 +476,8 @@ function Home({
       </section>
 
       <footer className="foot">
-        Demo checkout — no real charges. You paste the DM; TikTok won’t let us
-        send it.
+        Card payments via Stripe. Creator bank payout is still demo — you paste
+        the DM; TikTok won’t send it for us.
       </footer>
     </main>
   );
@@ -404,6 +494,7 @@ function Pay({
   validAmount,
   fee,
   paying,
+  payError,
   onBack,
   onAmount,
   onCustom,
@@ -421,6 +512,7 @@ function Pay({
   validAmount: boolean;
   fee: number;
   paying: boolean;
+  payError: string;
   onBack: () => void;
   onAmount: (value: number) => void;
   onCustom: (value: string) => void;
@@ -507,6 +599,7 @@ function Pay({
         {custom.trim() !== "" && !validAmount && (
           <p className="error">Enter an amount between €1 and €500.</p>
         )}
+        {payError && <p className="error">{payError}</p>}
 
         <button
           className="primary"
@@ -514,10 +607,11 @@ function Pay({
           onClick={onPay}
           type="button"
         >
-          {paying ? "Holding…" : `Pay @${creator.handle}`}
+          {paying ? "Opening Stripe…" : `Pay @${creator.handle} with card`}
         </button>
         <p className="fine">
-          After this you’ll copy a message into their TikTok DMs.
+          Secure checkout on Stripe. Then you’ll copy a collect message into
+          their TikTok DMs.
         </p>
       </section>
     </main>
@@ -526,10 +620,12 @@ function Pay({
 
 function Done({
   receipt,
+  livemode,
   onAgain,
   onPreview,
 }: {
   receipt: Receipt;
+  livemode: boolean;
   onAgain: () => void;
   onPreview: () => void;
 }) {
@@ -559,15 +655,16 @@ function Done({
 
   return (
     <main className="page done-page">
-      <p className="kicker">Held · next: DM</p>
+      <p className="kicker">{livemode ? "Paid · next: DM" : "Test paid · next: DM"}</p>
       <h1 className="headline">
         Send this in
         <br />
         <em>@{receipt.creator.handle}’s DMs</em>
       </h1>
       <p className="lede">
-        {formatMoney(receipt.amount)} ready as {receipt.ref}. They collect when
-        they tap your link.
+        {formatMoney(receipt.amount)} held as {receipt.ref}
+        {livemode ? "" : " (Stripe test mode)"}. They collect when they tap your
+        link.
       </p>
 
       <section className="dm-card">
