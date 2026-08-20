@@ -5,7 +5,7 @@ import {
   normalizeHandle,
   parseBody,
   siteOrigin,
-} from "./lib/stripe";
+} from "./lib/stripe.js";
 
 function feeCents(amountCents: number): number {
   return Math.round(amountCents * 0.029 + 30);

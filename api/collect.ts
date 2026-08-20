@@ -7,7 +7,7 @@ import {
   normalizeHandle,
   parseBody,
   paymentIntentId,
-} from "./lib/stripe";
+} from "./lib/stripe.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {

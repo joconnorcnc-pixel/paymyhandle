@@ -3,7 +3,7 @@ import {
   getStripe,
   isExpired,
   paymentIntentId,
-} from "./lib/stripe";
+} from "./lib/stripe.js";
 
 /** Refund paid-but-unclaimed sessions older than 30 days. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {

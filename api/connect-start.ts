@@ -6,7 +6,7 @@ import {
   normalizeHandle,
   parseBody,
   siteOrigin,
-} from "./lib/stripe";
+} from "./lib/stripe.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
@@ -66,7 +66,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ready: Boolean(account.charges_enabled && account.payouts_enabled),
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Connect onboarding failed";
-    return res.status(500).json({ error: message });
+    const stripeErr = err as { message?: string; param?: string; code?: string };
+    const message = stripeErr.message || "Connect onboarding failed";
+    const detail = stripeErr.param ? `${message} (${stripeErr.param})` : message;
+    return res.status(500).json({
+      error: detail,
+      param: stripeErr.param ?? null,
+      code: stripeErr.code ?? null,
+    });
   }
 }
