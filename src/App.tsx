@@ -125,7 +125,8 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const sessionId = params.get("session_id");
-    const collectId = params.get("collect");
+    // claim = DM / preview link; collect = return from Stripe Connect
+    const claimId = params.get("claim") || params.get("collect");
     const cancel = params.get("cancel");
     const cancelHandle = params.get("handle");
 
@@ -138,14 +139,13 @@ export default function App() {
       return;
     }
 
-    // Return from Stripe Connect onboarding
-    if (collectId?.startsWith("cs_")) {
+    if (claimId?.startsWith("cs_")) {
       let cancelled = false;
       setRecovering(true);
       (async () => {
         try {
           const res = await fetch(
-            `/api/claim-status?session_id=${encodeURIComponent(collectId)}`,
+            `/api/claim-status?session_id=${encodeURIComponent(claimId)}`,
           );
           const data = (await res.json()) as {
             error?: string;
@@ -154,19 +154,19 @@ export default function App() {
             ref?: string;
             sessionId?: string;
           };
-          if (!res.ok) throw new Error(data.error || "Could not resume collect.");
+          if (!res.ok) throw new Error(data.error || "Could not open collect page.");
           if (cancelled) return;
           setClaim({
             handle: data.handle!,
             amount: data.amount!,
             ref: data.ref!,
-            sessionId: data.sessionId || collectId,
+            sessionId: data.sessionId || claimId,
           });
           setView("claim");
           history.replaceState(null, "", window.location.pathname);
         } catch (err) {
           if (cancelled) return;
-          setError(err instanceof Error ? err.message : "Could not resume collect.");
+          setError(err instanceof Error ? err.message : "Could not open collect page.");
           setView("home");
           history.replaceState(null, "", window.location.pathname);
         } finally {
@@ -299,7 +299,7 @@ export default function App() {
       setView("home");
       return;
     }
-    window.location.hash = `claim/${next.creator.handle}/${next.ref}/${Math.round(next.amount * 100)}/${next.sessionId}`;
+    window.location.href = `/?claim=${encodeURIComponent(next.sessionId)}`;
   }
 
   function onCollected(ref: string) {

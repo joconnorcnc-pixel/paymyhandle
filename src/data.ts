@@ -103,7 +103,11 @@ export function claimUrl(
   amount: number,
   sessionId: string,
 ): string {
-  return `${siteOrigin()}/#claim/${handle}/${ref}/${Math.round(amount * 100)}/${sessionId}`;
+  // Query param, not #hash — TikTok / in-app browsers often drop fragments.
+  void handle;
+  void ref;
+  void amount;
+  return `${siteOrigin()}/?claim=${encodeURIComponent(sessionId)}`;
 }
 
 export function dmMessage(opts: {
@@ -126,9 +130,10 @@ export type ClaimLink = {
   sessionId: string;
 };
 
+/** Legacy hash links + optional parse for older DMs. */
 export function parseClaimHash(hash: string): ClaimLink | null {
   const match = hash.match(
-    /^#claim\/([a-z0-9._]{2,24})\/([A-Z0-9-]+)\/(\d+)\/(cs_[A-Za-z0-9]+)$/i,
+    /^#claim\/([a-z0-9._]{2,24})\/([A-Z0-9-]+)\/(\d+)\/(cs_[A-Za-z0-9_]+)$/i,
   );
   if (!match) return null;
   const amount = Number(match[3]) / 100;
