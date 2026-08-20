@@ -793,6 +793,7 @@ function Claim({
   const [error, setError] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [codeInput, setCodeInput] = useState("");
+  const [email, setEmail] = useState("");
   const [phase, setPhase] = useState<"load" | "ready" | "paid" | "refunded" | "expired">(
     "load",
   );
@@ -835,6 +836,11 @@ function Claim({
   }, [link.sessionId]);
 
   async function startConnect() {
+    const contactEmail = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+      setError("Enter your email so Stripe can create your payout account.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -845,6 +851,7 @@ function Claim({
           handle: link.handle,
           session_id: link.sessionId,
           country: "IE",
+          email: contactEmail,
         }),
       });
       const data = (await res.json()) as { url?: string; error?: string; ready?: boolean };
@@ -1001,14 +1008,27 @@ function Claim({
             {status.connectReady ? (
               <p className="ok-line">Stripe bank connected ✓</p>
             ) : (
-              <button
-                className="secondary"
-                type="button"
-                disabled={busy}
-                onClick={startConnect}
-              >
-                {busy ? "Opening Stripe…" : "Connect bank with Stripe"}
-              </button>
+              <>
+                <label className="field">
+                  <span>Email for Stripe</span>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="you@email.com"
+                    autoComplete="email"
+                    inputMode="email"
+                  />
+                </label>
+                <button
+                  className="secondary"
+                  type="button"
+                  disabled={busy}
+                  onClick={startConnect}
+                >
+                  {busy ? "Opening Stripe…" : "Connect bank with Stripe"}
+                </button>
+              </>
             )}
 
             <h2 className="section-label">3 · Collect</h2>

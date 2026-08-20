@@ -78,12 +78,12 @@ export async function findConnectAccount(
 
 export async function createRecipientAccount(
   stripe: Stripe,
-  opts: { handle: string; country: string; contactEmail?: string },
+  opts: { handle: string; country: string; contactEmail: string },
 ): Promise<ConnectAccount> {
   const displayName = `@${opts.handle}`;
   return stripe.v2.core.accounts.create({
     display_name: displayName,
-    ...(opts.contactEmail ? { contact_email: opts.contactEmail } : {}),
+    contact_email: opts.contactEmail,
     dashboard: "express",
     identity: {
       country: opts.country.toLowerCase(),

@@ -23,7 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const handle = normalizeHandle(String(body.handle ?? ""));
     const sessionId = String(body.session_id ?? "");
     const country = String(body.country ?? "IE").toUpperCase().slice(0, 2);
-    const contactEmail = body.email ? String(body.email).trim() : undefined;
+    const contactEmail = String(body.email ?? "").trim().toLowerCase();
 
     if (!handlePattern.test(handle)) {
       return res.status(400).json({ error: "Invalid TikTok handle." });
@@ -33,6 +33,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     if (!/^[A-Z]{2}$/.test(country)) {
       return res.status(400).json({ error: "Invalid country code." });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+      return res.status(400).json({ error: "Enter a valid email for Stripe." });
     }
 
     const session = await stripe.checkout.sessions.retrieve(sessionId);
