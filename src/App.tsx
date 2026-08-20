@@ -848,13 +848,15 @@ function Claim({
         }),
       });
       const data = (await res.json()) as { url?: string; error?: string; ready?: boolean };
-      if (!res.ok || !data.url) {
+      if (!res.ok) {
         throw new Error(data.error || "Could not start Stripe Connect.");
       }
       if (data.ready) {
         await refresh();
-      } else {
+      } else if (data.url) {
         window.location.href = data.url;
+      } else {
+        throw new Error(data.error || "Could not start Stripe Connect.");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Connect failed");

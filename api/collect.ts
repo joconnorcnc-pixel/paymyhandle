@@ -3,10 +3,12 @@ import {
   findConnectAccount,
   getStripe,
   handlePattern,
+  isConnectReady,
   isExpired,
   normalizeHandle,
   parseBody,
   paymentIntentId,
+  retrieveConnectAccount,
 } from "./lib/stripe.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -102,8 +104,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    const account = await findConnectAccount(stripe, handle);
-    if (!account || !account.charges_enabled || !account.payouts_enabled) {
+    const account =
+      (meta.connect_account_id
+        ? await retrieveConnectAccount(stripe, meta.connect_account_id).catch(() => null)
+        : null) ?? (await findConnectAccount(stripe, handle));
+    if (!account || !isConnectReady(account)) {
       return res.status(400).json({
         error: "Connect your bank with Stripe first, then collect.",
       });

@@ -3,9 +3,11 @@ import {
   findConnectAccount,
   getStripe,
   handlePattern,
+  isConnectReady,
   isExpired,
   normalizeHandle,
   paymentIntentId,
+  retrieveConnectAccount,
   verifyCodeFor,
 } from "./lib/stripe.js";
 
@@ -51,10 +53,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const expired = isExpired(session.created);
-    const account = await findConnectAccount(stripe, handle);
-    const connectReady = Boolean(
-      account && account.charges_enabled && account.payouts_enabled,
-    );
+    const account =
+      (meta.connect_account_id
+        ? await retrieveConnectAccount(stripe, meta.connect_account_id).catch(() => null)
+        : null) ?? (await findConnectAccount(stripe, handle));
+    const connectReady = isConnectReady(account);
 
     return res.status(200).json({
       handle,

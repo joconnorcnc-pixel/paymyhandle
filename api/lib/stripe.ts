@@ -4,6 +4,8 @@ import Stripe from "stripe";
 export const HOLD_DAYS = 30;
 export const handlePattern = /^[a-z0-9._]{2,24}$/;
 
+export type ConnectAccount = Stripe.V2.Core.Account;
+
 export function getStripe(): Stripe {
   const secret = process.env.STRIPE_SECRET_KEY;
   if (!secret) throw new Error("STRIPE_SECRET_KEY is not set");
@@ -39,22 +41,72 @@ export function verifyCodeFor(ref: string): string {
   return `PMH-${ref.replace(/^PAY-/, "").slice(0, 6)}`;
 }
 
+export async function retrieveConnectAccount(
+  stripe: Stripe,
+  accountId: string,
+): Promise<ConnectAccount> {
+  return stripe.v2.core.accounts.retrieve(accountId, {
+    include: ["configuration.recipient", "identity"],
+  });
+}
+
+/** Ready to receive Transfers into the connected account's Stripe balance. */
+export function isConnectReady(account: ConnectAccount | null | undefined): boolean {
+  if (!account) return false;
+  return (
+    account.configuration?.recipient?.capabilities?.stripe_balance?.stripe_transfers
+      ?.status === "active"
+  );
+}
+
 export async function findConnectAccount(
   stripe: Stripe,
   handle: string,
-): Promise<Stripe.Account | null> {
-  let startingAfter: string | undefined;
-  for (let page = 0; page < 10; page += 1) {
-    const list = await stripe.accounts.list({
-      limit: 100,
-      ...(startingAfter ? { starting_after: startingAfter } : {}),
-    });
-    const found = list.data.find((account) => account.metadata?.handle === handle);
-    if (found) return found;
-    if (!list.has_more || list.data.length === 0) break;
-    startingAfter = list.data[list.data.length - 1]?.id;
+): Promise<ConnectAccount | null> {
+  const list = stripe.v2.core.accounts.list({
+    limit: 100,
+    applied_configurations: ["recipient"],
+  });
+
+  for await (const account of list) {
+    if (account.metadata?.handle === handle) {
+      return retrieveConnectAccount(stripe, account.id);
+    }
   }
   return null;
+}
+
+export async function createRecipientAccount(
+  stripe: Stripe,
+  opts: { handle: string; country: string; contactEmail?: string },
+): Promise<ConnectAccount> {
+  const displayName = `@${opts.handle}`;
+  return stripe.v2.core.accounts.create({
+    display_name: displayName,
+    ...(opts.contactEmail ? { contact_email: opts.contactEmail } : {}),
+    dashboard: "express",
+    identity: {
+      country: opts.country.toLowerCase(),
+      entity_type: "individual",
+    },
+    defaults: {
+      responsibilities: {
+        fees_collector: "application",
+        losses_collector: "application",
+      },
+    },
+    configuration: {
+      recipient: {
+        capabilities: {
+          stripe_balance: {
+            stripe_transfers: { requested: true },
+          },
+        },
+      },
+    },
+    metadata: { handle: opts.handle },
+    include: ["configuration.recipient", "identity", "requirements"],
+  });
 }
 
 export function isExpired(createdUnix: number, now = Date.now()): boolean {
