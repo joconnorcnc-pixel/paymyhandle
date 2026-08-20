@@ -63,6 +63,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
+      // Tips/P2P-style pay doesn't need Managed Payments eligibility rules.
+      managed_payments: { enabled: false },
       line_items: [
         {
           quantity: 1,
