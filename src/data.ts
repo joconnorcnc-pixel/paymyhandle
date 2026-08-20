@@ -97,8 +97,13 @@ export function siteOrigin(): string {
   return window.location.origin;
 }
 
-export function claimUrl(handle: string, ref: string, amount: number): string {
-  return `${siteOrigin()}/#claim/${handle}/${ref}/${Math.round(amount * 100)}`;
+export function claimUrl(
+  handle: string,
+  ref: string,
+  amount: number,
+  sessionId: string,
+): string {
+  return `${siteOrigin()}/#claim/${handle}/${ref}/${Math.round(amount * 100)}/${sessionId}`;
 }
 
 export function dmMessage(opts: {
@@ -107,20 +112,24 @@ export function dmMessage(opts: {
   note: string;
   handle: string;
   ref: string;
+  sessionId: string;
 }): string {
   const money = formatMoney(opts.amount);
   const note = opts.note ? ` “${opts.note}”` : "";
-  return `${opts.from} sent you ${money} on paymyhandle.com.${note} Collect it here: ${claimUrl(opts.handle, opts.ref, opts.amount)}`;
+  return `${opts.from} sent you ${money} on paymyhandle.com.${note} Collect it here: ${claimUrl(opts.handle, opts.ref, opts.amount, opts.sessionId)}`;
 }
 
 export type ClaimLink = {
   handle: string;
   ref: string;
   amount: number;
+  sessionId: string;
 };
 
 export function parseClaimHash(hash: string): ClaimLink | null {
-  const match = hash.match(/^#claim\/([a-z0-9._]{2,24})\/([A-Z0-9-]+)\/(\d+)$/i);
+  const match = hash.match(
+    /^#claim\/([a-z0-9._]{2,24})\/([A-Z0-9-]+)\/(\d+)\/(cs_[A-Za-z0-9]+)$/i,
+  );
   if (!match) return null;
   const amount = Number(match[3]) / 100;
   if (!Number.isFinite(amount) || amount < 1) return null;
@@ -128,6 +137,7 @@ export function parseClaimHash(hash: string): ClaimLink | null {
     handle: normalizeHandle(match[1]),
     ref: match[2].toUpperCase(),
     amount,
+    sessionId: match[4],
   };
 }
 

@@ -1,11 +1,11 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import Stripe from "stripe";
-
-const handlePattern = /^[a-z0-9._]{2,24}$/;
-
-function normalizeHandle(raw: string): string {
-  return raw.trim().replace(/^@+/, "").toLowerCase();
-}
+import {
+  getStripe,
+  handlePattern,
+  normalizeHandle,
+  parseBody,
+  siteOrigin,
+} from "./lib/stripe";
 
 function feeCents(amountCents: number): number {
   return Math.round(amountCents * 0.029 + 30);
@@ -19,51 +19,34 @@ function receiptRef(): string {
   return `PAY-${n}`;
 }
 
-function siteOrigin(req: VercelRequest): string {
-  const fromEnv = process.env.SITE_URL?.replace(/\/$/, "");
-  if (fromEnv) return fromEnv;
-  const host = req.headers["x-forwarded-host"] ?? req.headers.host;
-  const proto = (req.headers["x-forwarded-proto"] as string) || "https";
-  if (host) return `${proto}://${host}`;
-  return "https://paymyhandle.com";
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const secret = process.env.STRIPE_SECRET_KEY;
-  if (!secret) {
-    return res.status(503).json({
-      error: "Stripe is not configured. Add STRIPE_SECRET_KEY in Vercel env.",
-    });
-  }
-
-  const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-  const handle = normalizeHandle(String(body?.handle ?? ""));
-  const note = String(body?.note ?? "").trim().slice(0, 80);
-  const from = String(body?.from ?? "").trim().slice(0, 32) || "Someone";
-  const amount = Number(body?.amount);
-
-  if (!handlePattern.test(handle)) {
-    return res.status(400).json({ error: "Invalid TikTok handle." });
-  }
-  if (!Number.isFinite(amount) || amount < 1 || amount > 500) {
-    return res.status(400).json({ error: "Amount must be between €1 and €500." });
-  }
-
-  const amountCents = Math.round(amount * 100);
-  const fee = feeCents(amountCents);
-  const ref = receiptRef();
-  const origin = siteOrigin(req);
-  const stripe = new Stripe(secret);
-
   try {
+    const stripe = getStripe();
+    const body = parseBody(req);
+    const handle = normalizeHandle(String(body.handle ?? ""));
+    const note = String(body.note ?? "").trim().slice(0, 80);
+    const from = String(body.from ?? "").trim().slice(0, 32) || "Someone";
+    const amount = Number(body.amount);
+
+    if (!handlePattern.test(handle)) {
+      return res.status(400).json({ error: "Invalid TikTok handle." });
+    }
+    if (!Number.isFinite(amount) || amount < 1 || amount > 500) {
+      return res.status(400).json({ error: "Amount must be between €1 and €500." });
+    }
+
+    const amountCents = Math.round(amount * 100);
+    const fee = feeCents(amountCents);
+    const ref = receiptRef();
+    const origin = siteOrigin(req);
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      // Tips/P2P-style pay doesn't need Managed Payments eligibility rules.
       managed_payments: { enabled: false },
       line_items: [
         {
@@ -97,13 +80,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         from,
         ref,
         amount: amount.toFixed(2),
+        collected: "false",
+        refunded: "false",
       },
       payment_intent_data: {
+        transfer_group: ref,
         metadata: {
           handle,
           note,
           from,
           ref,
+          collected: "false",
+          refunded: "false",
         },
       },
     });

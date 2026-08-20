@@ -596,8 +596,48 @@ button {
   font-weight: 500;
 }
 
-.claim-page .primary {
+.claim-page .primary,
+.claim-page .secondary {
   width: 100%;
+}
+
+.legal-links {
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.legal-page .headline {
+  font-size: clamp(36px, 8vw, 56px);
+}
+
+.legal-body {
+  display: grid;
+  gap: 14px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.5;
+  max-width: 52ch;
+}
+
+.legal-body p {
+  margin: 0;
+}
+
+.check-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 14px;
+  color: var(--fg);
+}
+
+.check-row input {
+  margin-top: 3px;
+}
+
+.claim-page .pay-card .section-label {
+  margin-top: 8px;
 }
 
 button:focus-visible,
