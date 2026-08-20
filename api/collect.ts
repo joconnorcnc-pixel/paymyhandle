@@ -65,7 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    const piId = await paymentIntentId(stripe, session);
+    const piId = await paymentIntentId(session);
     if (!piId) {
       return res.status(500).json({ error: "No payment intent on this session." });
     }

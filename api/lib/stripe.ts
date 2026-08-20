@@ -62,7 +62,6 @@ export function isExpired(createdUnix: number, now = Date.now()): boolean {
 }
 
 export async function paymentIntentId(
-  stripe: Stripe,
   session: Stripe.Checkout.Session,
 ): Promise<string | null> {
   const pi = session.payment_intent;

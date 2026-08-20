@@ -38,7 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: "Session missing payment metadata." });
     }
 
-    const piId = await paymentIntentId(stripe, session);
+    const piId = await paymentIntentId(session);
     let collected = meta.collected === "true";
     let transferId = meta.transfer_id || null;
     let refunded = meta.refunded === "true";

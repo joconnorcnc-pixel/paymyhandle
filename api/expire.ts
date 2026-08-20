@@ -40,7 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: "Still within the 30-day hold." });
     }
 
-    const piId = await paymentIntentId(stripe, session);
+    const piId = await paymentIntentId(session);
     if (!piId) return res.status(500).json({ error: "No payment intent." });
 
     const refund = await stripe.refunds.create({
