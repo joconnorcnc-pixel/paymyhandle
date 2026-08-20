@@ -27,6 +27,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!sessionId.startsWith("cs_")) {
       return res.status(400).json({ error: "Missing session_id." });
     }
+    if (!/^[A-Z]{2}$/.test(country)) {
+      return res.status(400).json({ error: "Invalid country code." });
+    }
 
     const session = await stripe.checkout.sessions.retrieve(sessionId);
     const metaHandle = normalizeHandle(String(session.metadata?.handle ?? ""));
@@ -39,26 +42,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       account = await stripe.accounts.create({
         type: "express",
         country,
-        email: undefined,
         capabilities: {
           transfers: { requested: true },
         },
         business_type: "individual",
         metadata: { handle },
-        settings: {
-          payouts: {
-            schedule: { interval: "daily" },
-          },
-        },
       });
     }
 
+    // Stripe rejects return_url / refresh_url that include #hash fragments.
     const origin = siteOrigin(req);
-    const returnHash = `claim/${handle}/${session.metadata?.ref ?? "PAY"}/${Math.round(Number(session.metadata?.amount ?? 0) * 100)}/${sessionId}`;
+    const returnUrl = `${origin}/?collect=${encodeURIComponent(sessionId)}`;
     const accountLink = await stripe.accountLinks.create({
       account: account.id,
-      refresh_url: `${origin}/#${returnHash}`,
-      return_url: `${origin}/#${returnHash}`,
+      refresh_url: returnUrl,
+      return_url: returnUrl,
       type: "account_onboarding",
     });
 

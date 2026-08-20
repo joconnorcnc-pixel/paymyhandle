@@ -125,6 +125,7 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const sessionId = params.get("session_id");
+    const collectId = params.get("collect");
     const cancel = params.get("cancel");
     const cancelHandle = params.get("handle");
 
@@ -135,6 +136,46 @@ export default function App() {
         setPayError("Checkout cancelled. Try again when ready.");
       }
       return;
+    }
+
+    // Return from Stripe Connect onboarding
+    if (collectId?.startsWith("cs_")) {
+      let cancelled = false;
+      setRecovering(true);
+      (async () => {
+        try {
+          const res = await fetch(
+            `/api/claim-status?session_id=${encodeURIComponent(collectId)}`,
+          );
+          const data = (await res.json()) as {
+            error?: string;
+            handle?: string;
+            amount?: number;
+            ref?: string;
+            sessionId?: string;
+          };
+          if (!res.ok) throw new Error(data.error || "Could not resume collect.");
+          if (cancelled) return;
+          setClaim({
+            handle: data.handle!,
+            amount: data.amount!,
+            ref: data.ref!,
+            sessionId: data.sessionId || collectId,
+          });
+          setView("claim");
+          history.replaceState(null, "", window.location.pathname);
+        } catch (err) {
+          if (cancelled) return;
+          setError(err instanceof Error ? err.message : "Could not resume collect.");
+          setView("home");
+          history.replaceState(null, "", window.location.pathname);
+        } finally {
+          if (!cancelled) setRecovering(false);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
     }
 
     if (!sessionId) return;
